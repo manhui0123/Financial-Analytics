@@ -1,0 +1,1208 @@
+---
+title: "MMAT 5310 Midterm"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# Install ggplot2 package if not already installed
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+
+# Load ggplot2 package
+library(ggplot2)
+```
+
+## Assignment 0 Q1
+
+```{r}
+# Old French Lottery Analysis
+
+# Parameters of the lottery
+total_balls <- 90      # Total number of balls in the lottery
+drawn_balls <- 5       # Number of balls drawn in each lottery
+ticket_cost <- 1       # Cost of each ticket in dollars
+
+# Payouts for different ticket types (number of correct numbers)
+payouts <- c(15, 270, 5500, 75000, 1000000)
+
+# Function to calculate the probability of matching exactly k numbers from n selected
+# when m numbers are drawn from a total of N
+calculate_probability <- function(N, m, n, k) {
+  # Probability of matching exactly k numbers from n selected
+  # when m numbers are drawn from a total of N
+  
+  # Number of ways to choose k from n selected numbers
+  ways_to_choose_k_from_n <- choose(n, k)
+  
+  # Number of ways to choose (m-k) from (N-n) remaining numbers
+  ways_to_choose_remaining <- choose(N-n, m-k)
+  
+  # Total number of ways to draw m numbers from N
+  total_ways <- choose(N, m)
+  
+  # Probability
+  probability <- (ways_to_choose_k_from_n * ways_to_choose_remaining) / total_ways
+  
+  return(probability)
+}
+
+# Function to calculate expected value for a ticket with n numbers
+calculate_expected_value <- function(n) {
+  # For a ticket to win, all n numbers must be among the 5 drawn
+  probability_of_win <- choose(drawn_balls, n) / choose(total_balls, n)
+  
+  # Expected value = (payout × probability of winning) - ticket cost
+  expected_value <- (payouts[n] * probability_of_win) - ticket_cost
+  
+  return(expected_value)
+}
+
+# Calculate and print the probabilities and expected values for each ticket type
+cat("\n=== OLD FRENCH LOTTERY ANALYSIS ===\n\n")
+cat("Lottery parameters:\n")
+cat(sprintf("- Total balls: %d\n", total_balls))
+cat(sprintf("- Balls drawn: %d\n", drawn_balls))
+cat(sprintf("- Ticket cost: $%d\n\n", ticket_cost))
+
+cat("Analysis of each ticket type:\n\n")
+
+for (n in 1:5) {
+  probability_of_win <- choose(drawn_balls, n) / choose(total_balls, n)
+  expected_value <- calculate_expected_value(n)
+  
+  cat(sprintf("TICKET WITH %d NUMBER%s:\n", n, ifelse(n > 1, "S", "")))
+  cat(sprintf("- Payout: $%s\n", format(payouts[n], big.mark=",")))
+  cat(sprintf("- Probability of winning: 1 in %.2f (%.8f)\n", 
+              1/probability_of_win, probability_of_win))
+  cat(sprintf("- Expected value: $%.4f\n", expected_value))
+  
+  if (expected_value > 0) {
+    cat("- This ticket has a POSITIVE expected value (profitable in the long run)\n")
+  } else {
+    cat("- This ticket has a NEGATIVE expected value (unprofitable in the long run)\n")
+  }
+  
+  cat("\n")
+}
+```
+
+##　Assignment 0 Q2
+```{r}
+# Load required libraries
+library(ggplot2)
+
+# Define the game parameters
+win_amount <- 3
+lose_amount <- -1
+win_prob <- 1/4
+lose_prob <- 3/4
+
+# a. Probability of winning at least $10 in 10 games
+
+# We need to calculate how many wins are needed to have at least $10
+# If x = number of wins, and y = number of losses (where x + y = 10)
+# Then: x*win_amount + y*lose_amount >= 10
+# x*3 + (10-x)*(-1) >= 10
+# 3x - 10 + x >= 10
+# 4x >= 20
+# x >= 5
+
+# So we need at least 5 wins out of 10 games
+
+# Calculate using binomial probability (sum of probabilities for 5 or more wins)
+prob_at_least_10_in_10_games <- sum(dbinom(5:10, 10, win_prob))
+
+cat("a. Probability of winning at least $10 in 10 games:\n")
+cat(sprintf("   %.6f (approximately %.2f%%)\n\n", 
+            prob_at_least_10_in_10_games, 
+            prob_at_least_10_in_10_games * 100))
+
+# b. Calculate probabilities for 1 to 20 games
+
+# Function to calculate minimum wins needed for at least $10
+min_wins_needed <- function(n_games) {
+  # Solve: x*win_amount + (n_games-x)*lose_amount >= 10
+  # x*3 + (n_games-x)*(-1) >= 10
+  # 3x - n_games + x >= 10
+  # 4x >= 10 + n_games
+  # x >= (10 + n_games)/4
+  ceiling((10 + n_games)/4)
+}
+
+# Calculate probabilities for 1 to 20 games
+n_games_seq <- 1:20
+probabilities <- numeric(length(n_games_seq))
+
+for (i in seq_along(n_games_seq)) {
+  n_games <- n_games_seq[i]
+  min_wins <- min_wins_needed(n_games)
+  
+  # If minimum wins needed exceeds number of games, probability is 0
+  if (min_wins > n_games) {
+    probabilities[i] <- 0
+  } else {
+    # Sum probabilities of getting min_wins or more
+    probabilities[i] <- sum(dbinom(min_wins:n_games, n_games, win_prob))
+  }
+}
+
+# Create a data frame for plotting
+results_df <- data.frame(
+  Games = n_games_seq,
+  Probability = probabilities
+)
+
+# Print a table of probabilities
+cat("b. Probabilities of winning at least $10 for 1 to 20 games:\n\n")
+for (i in seq_along(n_games_seq)) {
+  cat(sprintf("   Games: %2d, Probability: %.6f (%.2f%%)\n", 
+              results_df$Games[i], 
+              results_df$Probability[i], 
+              results_df$Probability[i] * 100))
+}
+
+# Create the plot
+ggplot(results_df, aes(x = Games, y = Probability)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red", size = 3) +
+  scale_x_continuous(breaks = seq(0, 20, by = 2)) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Probability of Winning at least $10",
+    subtitle = "Game: Win $3 (p=1/4) or Lose $1 (p=3/4)",
+    x = "Number of Games Played",
+    y = "Probability"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    panel.grid.minor = element_blank()
+  )
+```
+
+##　Assignment 0 Q3
+```{r}
+# Set the range for n
+n_values <- 1:50
+
+# Initialize vectors to store Pn and Qn
+Pn <- numeric(50)
+Qn <- numeric(50)
+
+# Compute Pn and Qn for each n
+for (n in n_values) {
+  m <- 0:n
+  P_HB <- dbinom(m, n, 0.5)              # P(H_B = m)
+  P_HA_eq_m <- dbinom(m, n+1, 0.5)       # P(H_A = m)
+  P_HA_gt_m <- 1 - pbinom(m, n+1, 0.5)   # P(H_A > m)
+  Qn[n] <- sum(P_HB * P_HA_eq_m)         # Q_n = P(H_A = H_B)
+  Pn[n] <- sum(P_HB * P_HA_gt_m)         # P_n = P(H_A > H_B)
+}
+
+# Plot Pn and Qn
+plot(n_values, Pn, type="l", col="blue", ylab="Probability", xlab="n", 
+     main="Probabilities Pn and Qn for n=1 to 50", ylim=c(0,1))
+lines(n_values, Qn, col="red")
+legend("topright", legend=c("Pn: P(A has more heads than B)", 
+                            "Qn: P(A and B have equal heads)"), 
+       col=c("blue", "red"), lty=1)
+
+# Print simple descriptions
+cat("Analysis Results for n = 1 to 50:\n")
+cat("Pn is the probability that A, with n+1 coins, has more heads than B, with n coins.\n")
+cat("Qn is the probability that A and B have an equal number of heads.\n")
+cat("Observations from the computation:\n")
+cat("- Pn remains constant at 0.5 for all n from 1 to 50.\n")
+cat("- Qn decreases as n increases, approaching 0.\n")
+cat("The plot shows Pn as a blue line and Qn as a red line.\n")
+
+```
+
+
+##　Assignment 1 Q1
+
+```{r}
+# Set parameters
+epsilon <- 0.01
+eta <- 0.01
+p_values <- seq(0.1, 0.9, by = 0.1)
+
+# Calculate minimum n based on the theorem
+# n ≥ (1 + ε) / ε^2 * (log(1/η)) + 1/ε
+calculate_min_n <- function(epsilon, eta) {
+  return(ceiling((1 + epsilon) / (epsilon^2) * log(1/eta) + 1/epsilon))
+}
+
+min_n <- calculate_min_n(epsilon, eta)
+cat("Minimum n from theorem:", min_n, "\n")
+
+# Calculate exact probabilities using binomial distribution
+results <- data.frame(p = p_values, probability = NA, min_n = NA)
+
+for (i in 1:length(p_values)) {
+  p <- p_values[i]
+  
+  # Calculate the lower and upper bounds for m
+  lower_bound <- ceiling(min_n * (p - epsilon))
+  upper_bound <- floor(min_n * (p + epsilon))
+  
+  # Adjust bounds to be within [0, n]
+  adjusted_lower_bound <- max(0, lower_bound)
+  adjusted_upper_bound <- min(min_n, upper_bound)
+  
+  # Calculate probability using pbinom
+  if (adjusted_lower_bound > 0) {
+    # P(adjusted_lower_bound ≤ X ≤ adjusted_upper_bound) = P(X ≤ adjusted_upper_bound) - P(X ≤ adjusted_lower_bound - 1)
+    results$probability[i] <- pbinom(adjusted_upper_bound, min_n, p) - pbinom(adjusted_lower_bound - 1, min_n, p)
+  } else {
+    # If lower bound is 0, just take P(X ≤ adjusted_upper_bound)
+    results$probability[i] <- pbinom(adjusted_upper_bound, min_n, p)
+  }
+  
+  results$min_n[i] <- min_n
+}
+
+# Print results
+print(results)
+cat("1 - η =", 1 - eta, "\n")
+
+# Create plot using ggplot2
+library(ggplot2)
+
+# Add a column for the theoretical bound (1 - η)
+results$theoretical <- 1 - eta
+
+# Convert to long format for plotting
+library(tidyr)
+long_results <- pivot_longer(results, 
+                             cols = c("probability", "theoretical"),
+                             names_to = "type", 
+                             values_to = "value")
+
+# Calculate the range for the "Exact Probability" variable
+exact_prob_range <- range(results$probability, na.rm = TRUE)
+
+# Plot
+ggplot(long_results, aes(x = p, y = value, color = type, group = type)) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  scale_color_manual(values = c("probability" = "blue", "theoretical" = "red"),
+                    labels = c("probability" = "Exact Probability", 
+                              "theoretical" = "Theoretical Bound (1-η)")) +
+  labs(title = paste0("Exact Probability vs Theoretical Bound (1-η = ", 1-eta, ")"),
+       subtitle = paste0("ε = η = ", epsilon, ", n = ", min_n),
+       x = "Success Probability (p)",
+       y = "Probability",
+       color = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  ylim(exact_prob_range[1], exact_prob_range[2])
+```
+
+##　Assignment 1 Q2
+
+```{r}
+# Load required libraries
+library(dplyr)      # For data manipulation
+library(ggplot2)    # For plotting
+library(lubridate)  # For date handling
+
+# Read the CPI data from a CSV file
+cpi_data <- read.csv("cpi.csv", header = TRUE)
+
+# Filter to keep only monthly data (exclude rows where Month is missing or empty)
+monthly_data <- cpi_data[!is.na(cpi_data$Month) & cpi_data$Month != "", ]
+
+# Convert Month to a factor with calendar order
+monthly_data$Month <- factor(monthly_data$Month, 
+                             levels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+
+# Create a Date column for easier date-based filtering
+monthly_data$Date <- as.Date(paste(monthly_data$Year, match(monthly_data$Month, month.abb), "01", sep = "-"), 
+                             format = "%Y-%m-%d")
+
+# Sort the data by Date
+monthly_data <- monthly_data %>% arrange(Date)
+
+# Function to calculate H1 and H2 for each year
+calculate_H1_H2 <- function(data) {
+  # Initialize lists to store H1 and H2 values
+  H1_list <- list()
+  H2_list <- list()
+  
+  # Get unique years in the dataset
+  years <- unique(year(data$Date))
+  
+  for (yr in years) {
+    # H1: Average CPI from May to October of the current year
+    start_H1 <- as.Date(paste(yr, "05-01", sep = "-"))
+    end_H1 <- as.Date(paste(yr, "10-01", sep = "-"))
+    H1_data <- data %>% filter(Date >= start_H1 & Date <= end_H1)
+    if (nrow(H1_data) == 6) {  # Ensure exactly 6 months of data
+      H1_list[[as.character(yr)]] <- mean(H1_data$CPI)
+    }
+    
+    # H2: Average CPI from November of the current year to April of the next year
+    start_H2 <- as.Date(paste(yr, "11-01", sep = "-"))
+    end_H2 <- as.Date(paste(yr + 1, "04-01", sep = "-"))
+    H2_data <- data %>% filter(Date >= start_H2 & Date <= end_H2)
+    if (nrow(H2_data) == 6) {  # Ensure exactly 6 months of data
+      H2_list[[as.character(yr)]] <- mean(H2_data$CPI)
+    }
+  }
+  
+  # Convert lists to data frames
+  H1_df <- data.frame(Year = as.integer(names(H1_list)), H1 = unlist(H1_list))
+  H2_df <- data.frame(Year = as.integer(names(H2_list)), H2 = unlist(H2_list))
+  
+  return(list(H1 = H1_df, H2 = H2_df))
+}
+
+# Calculate H1 and H2
+H1_H2 <- calculate_H1_H2(monthly_data)
+
+# Merge H1 and H2 into a single data frame for plotting
+H1_H2_df <- full_join(H1_H2$H1, H1_H2$H2, by = "Year")
+
+# Create the line plot
+ggplot(H1_H2_df, aes(x = Year)) +
+  geom_line(aes(y = H1, color = "H1")) +  # H1 in blue
+  geom_line(aes(y = H2, color = "H2")) +  # H2 in red
+  labs(title = "Time Series of H1 and H2",
+       x = "Year",
+       y = "Average CPI") +
+  scale_color_manual(values = c("H1" = "blue", "H2" = "red"),
+                     name = "Series") +
+  theme_minimal()
+```
+
+Assignment 1 Q3
+
+```{r}
+  # Load necessary libraries
+library(ggplot2)
+
+# Define the cash flow dates and values
+dates <- as.Date(c("2023-06-01", "2023-07-26", "2023-08-29", "2023-09-01"))
+base_flows <- c(0, -1873.9, -39767.0, NA)  # Last value will depend on exchange rate
+
+# Function to calculate days between dates
+days_between <- function(start_date, end_date) {
+  as.numeric(difftime(end_date, start_date, units = "days"))
+}
+
+# Calculate time intervals in years (using day count)
+t0 <- dates[1]
+time_intervals <- days_between(t0, dates) / 365
+
+# Function to calculate NPV given a rate and cash flows
+npv_func <- function(rate, cashflows, timepoints) {
+  sum(cashflows / (1 + rate)^timepoints)
+}
+
+# Function to find IRR for a specific exchange rate
+find_irr <- function(xr) {
+  # Calculate the final cash flow based on exchange rate
+  final_flow <- 193518.2 * xr - 1465686
+  
+  # Complete cash flows vector
+  cash_flows <- c(base_flows[1:3], final_flow)
+  
+  # Function to find the root of (for uniroot)
+  f <- function(r) npv_func(r, cash_flows, time_intervals)
+  
+  # Use uniroot to find IRR
+  result <- tryCatch({
+    uniroot(f, interval = c(-0.9999, 1.0), extendInt = "yes")
+  }, error = function(e) {
+    return(list(root = NA))
+  })
+  
+  return(result$root)
+}
+
+# Generate sequence of exchange rates
+exchange_rates <- seq(7.75, 7.85, by = 0.005)
+
+# Calculate IRR for each exchange rate
+irr_values <- sapply(exchange_rates, find_irr)
+
+# Create a data frame for plotting
+results <- data.frame(
+  ExchangeRate = exchange_rates,
+  IRR = irr_values
+)
+
+# Print results table
+print(results)
+
+# Plot the IRR against exchange rates
+p <- ggplot(results, aes(x = ExchangeRate, y = IRR)) +
+  geom_line(color = "blue", size = 1) +
+  geom_point(color = "red", size = 2) +
+  labs(
+    title = "IRR vs USD/HKD Exchange Rate",
+    x = "USD/HKD Exchange Rate",
+    y = "Internal Rate of Return (IRR)",
+    caption = "Step size: 0.005"
+  ) +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::percent) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "darkgray") +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text(face = "bold")
+  )
+
+# Display the plot
+print(p)
+
+# Save plot to file if needed
+# ggsave("irr_vs_exchange_rate.png", p, width = 10, height = 6, dpi = 300)
+```
+
+##　Assignment 1 Q4
+
+```{r}
+# Analysis of uncertain cash flows using Hazen (2009) mean decision rule
+
+# Set the discount rate
+discount_rate <- 0.06
+
+# Define initial investment
+C0 <- -100
+
+# Define possible paths and their probabilities
+# Path 1: C0 -> C1(70) -> C2(80)
+# Path 2: C0 -> C1(70) -> C2(50)
+# Path 3: C0 -> C1(50) -> C2(50)
+
+# Calculate NPV for each path
+# Path 1: C0 -> C1(70) -> C2(80) with probability 0.4 * 0.2 = 0.08
+path1_cf <- c(C0, 70, 80)
+path1_npv <- path1_cf[1] + 
+             path1_cf[2] / (1 + discount_rate)^1 + 
+             path1_cf[3] / (1 + discount_rate)^2
+path1_prob <- 0.4 * 0.2
+
+# Path 2: C0 -> C1(70) -> C2(50) with probability 0.4 * 0.8 = 0.32
+path2_cf <- c(C0, 70, 50)
+path2_npv <- path2_cf[1] + 
+             path2_cf[2] / (1 + discount_rate)^1 + 
+             path2_cf[3] / (1 + discount_rate)^2
+path2_prob <- 0.4 * 0.8
+
+# Path 3: C0 -> C1(50) -> C2(50) with probability 0.6 * 1.0 = 0.6
+path3_cf <- c(C0, 50, 50)
+path3_npv <- path3_cf[1] + 
+             path3_cf[2] / (1 + discount_rate)^1 + 
+             path3_cf[3] / (1 + discount_rate)^2
+path3_prob <- 0.6 * 1.0
+
+# Create a summary table for paths
+paths_df <- data.frame(
+  Path = c("Path 1: C0 -> C1(70) -> C2(80)", 
+           "Path 2: C0 -> C1(70) -> C2(50)", 
+           "Path 3: C0 -> C1(50) -> C2(50)"),
+  Probability = c(path1_prob, path2_prob, path3_prob),
+  NPV = c(path1_npv, path2_npv, path3_npv)
+)
+
+# Calculate expected NPV using Hazen's mean decision rule
+expected_npv <- path1_prob * path1_npv + 
+                path2_prob * path2_npv + 
+                path3_prob * path3_npv
+
+# Print results
+cat("Hazen (2009) Mean Decision Rule Analysis\n")
+cat("========================================\n\n")
+
+cat("Discount Rate:", discount_rate * 100, "%\n\n")
+
+cat("NPV Calculation for Each Path:\n")
+print(paths_df, row.names = FALSE)
+cat("\n")
+
+cat("Expected NPV:", round(expected_npv, 2), "\n\n")
+
+# Decision rule
+if(expected_npv > 0) {
+  cat("Decision: The project should be ACCEPTED based on Hazen's mean decision rule,\n")
+  cat("as the expected NPV is positive.")
+} else {
+  cat("Decision: The project should be REJECTED based on Hazen's mean decision rule,\n")
+  cat("as the expected NPV is negative or zero.")
+}
+```
+
+##　Assignment 1 Q4
+
+```{r}
+# Read the data from return.csv
+data <- read.csv("return.csv")
+
+# Separate into benchmark and fund data frames
+benchmark <- subset(data, Portfolio == "Benchmark", select = c("Sector", "Weight", "Return"))
+fund <- subset(data, Portfolio == "CUHKFund", select = c("Sector", "Weight", "Return"))
+
+# Merge the data frames by Sector
+data_merged <- merge(benchmark, fund, by = "Sector", suffixes = c("_b", "_p"))
+
+# Convert weights from percentages to decimals
+data_merged$Weight_b <- data_merged$Weight_b / 100
+data_merged$Weight_p <- data_merged$Weight_p / 100
+
+# Calculate the BHB model effects for each sector
+data_merged$Allocation_Effect <- (data_merged$Weight_p - data_merged$Weight_b) * data_merged$Return_b
+data_merged$Selection_Effect <- data_merged$Weight_b * (data_merged$Return_p - data_merged$Return_b)
+data_merged$Interaction_Effect <- (data_merged$Weight_p - data_merged$Weight_b) * (data_merged$Return_p - data_merged$Return_b)
+
+# Calculate total returns
+benchmark_return <- sum(data_merged$Weight_b * data_merged$Return_b)
+fund_return <- sum(data_merged$Weight_p * data_merged$Return_p)
+excess_return <- fund_return - benchmark_return
+
+# Calculate total effects
+total_allocation <- sum(data_merged$Allocation_Effect)
+total_selection <- sum(data_merged$Selection_Effect)
+total_interaction <- sum(data_merged$Interaction_Effect)
+total_effects <- total_allocation + total_selection + total_interaction
+
+# Print the results with descriptions
+cat("Return Attribution Analysis using BHB Model\n")
+cat("-----------------------------------------\n")
+cat("Sector-wise Effects (in percentage points):\n")
+print(data_merged[, c("Sector", "Allocation_Effect", "Selection_Effect", "Interaction_Effect")])
+cat("\nTotal Effects (in percentage points):\n")
+cat(sprintf("Total Allocation Effect: %.3f%%\n", total_allocation))
+cat(sprintf("Total Selection Effect: %.3f%%\n", total_selection))
+cat(sprintf("Total Interaction Effect: %.3f%%\n", total_interaction))
+cat(sprintf("Sum of Effects: %.3f%%\n", total_effects))
+cat("\nTotal Returns (in percentage points):\n")
+cat(sprintf("Benchmark Return: %.3f%%\n", benchmark_return))
+cat(sprintf("Fund Return: %.3f%%\n", fund_return))
+cat(sprintf("Excess Return: %.3f%%\n", excess_return))
+cat("\nDescription:\n")
+cat("The BHB model decomposes the excess return of CUHKFund over the benchmark into three components:\n")
+cat("- Allocation Effect: Impact of over- or under-weighting sectors relative to the benchmark.\n")
+cat("- Selection Effect: Impact of selecting securities within sectors that differ from the benchmark.\n")
+cat("- Interaction Effect: Combined impact of allocation and selection decisions.\n")
+cat(sprintf("The total excess return is %.3f%%, explained by an allocation effect of %.3f%%, a selection effect of %.3f%%, and an interaction effect of %.3f%%.\n", 
+            excess_return, total_allocation, total_selection, total_interaction))
+```
+
+##　Assignment 1 Q5(a)
+
+```{r}
+
+# Load required libraries
+library(readr)
+
+# Read the data
+data <- read.csv("data1.csv")
+
+# Display the first few rows of the data to understand its structure
+cat("First few rows of the dataset:\n")
+print(head(data))
+
+# Summary statistics of the data
+cat("\nSummary statistics:\n")
+print(summary(data))
+
+# Research Question: Is Strategy A's daily return conditional on buy signals higher 
+# than the buy-and-hold strategy (unconditional buy return)?
+
+# Extract returns for Strategy A when there is a buy signal (Strategy A = 1)
+strategy_A_buy_return <- data$Stock.Return[data$Strategy.A == 1]
+
+# Extract returns for buy-and-hold strategy (all days)
+buy_and_hold_return <- data$Stock.Return
+
+# Calculate summary statistics for each strategy
+cat("\nStrategy A (Buy Signal) Returns Summary:\n")
+print(summary(strategy_A_buy_return))
+cat("Number of buy signals for Strategy A:", length(strategy_A_buy_return), "\n")
+cat("Mean return for Strategy A (Buy Signal):", mean(strategy_A_buy_return), "basis points\n")
+cat("Standard deviation for Strategy A (Buy Signal):", sd(strategy_A_buy_return), "basis points\n")
+
+cat("\nBuy-and-Hold Returns Summary:\n")
+print(summary(buy_and_hold_return))
+cat("Number of trading days:", length(buy_and_hold_return), "\n")
+cat("Mean return for Buy-and-Hold:", mean(buy_and_hold_return), "basis points\n")
+cat("Standard deviation for Buy-and-Hold:", sd(buy_and_hold_return), "basis points\n")
+
+# Conduct two-sample unpaired t-test
+# H0: mean(strategy_A_buy_return) <= mean(buy_and_hold_return)
+# H1: mean(strategy_A_buy_return) > mean(buy_and_hold_return)
+t_test_result <- t.test(strategy_A_buy_return, buy_and_hold_return, 
+                        alternative = "greater", var.equal = TRUE)
+
+cat("\nTwo-Sample T-Test Results:\n")
+print(t_test_result)
+
+# Check if the result is statistically significant
+alpha <- 0.05
+if (t_test_result$p.value < alpha) {
+  cat("\nConclusion: We reject the null hypothesis at the", alpha, "significance level.\n")
+  cat("Strategy A's daily return conditional on buy signals is significantly higher than the buy-and-hold strategy.\n")
+} else {
+  cat("\nConclusion: We fail to reject the null hypothesis at the", alpha, "significance level.\n")
+  cat("There is insufficient evidence to conclude that Strategy A's daily return conditional on buy signals is higher than the buy-and-hold strategy.\n")
+}
+
+# Calculate the difference in means
+mean_diff <- mean(strategy_A_buy_return) - mean(buy_and_hold_return)
+cat("\nDifference in means (Strategy A - Buy-and-Hold):", mean_diff, "basis points\n")
+
+# Optional: Calculate the confidence interval for the difference in means
+conf_int <- t_test_result$conf.int
+cat("95% confidence interval for the difference in means:", conf_int[1], "to", "Infinity", "basis points\n")
+
+```
+
+##　Assignment 1 Q5(b)
+
+```{r}
+# Step 1: Load the data
+# For this example, we assume the data is in a CSV format with columns: "Stock Return" and "Strategy B"
+# Replace this with your actual data loading step, e.g., data <- read.csv("your_file.csv")
+data <- read.csv("data1.csv")
+
+# Step 2: Extract returns for Strategy B on buy signal days
+strategy_B_buy_return <- data$Stock.Return * data$Strategy.B
+
+buy_and_hold_return <- data$Stock.Return
+
+# Step 4: Perform the paired t-test
+# We use paired = TRUE, alternative = "greater", and var.equal = FALSE as specified
+t_test_result <- t.test(strategy_B_buy_return, buy_and_hold_return, 
+                        paired = TRUE, alternative = "greater", var.equal = FALSE)
+
+# Step 5: Calculate mean returns for clarity in output
+mean_strategy_B <- mean(strategy_B_buy_return)
+mean_buy_and_hold <- mean(buy_and_hold_return)
+
+# Step 6: Print the results with simple, clear descriptions
+cat("Number of days Strategy B signals a buy:", length(strategy_B_buy_return), "\n")
+cat("Mean daily return for Strategy B (buy days):", round(mean_strategy_B, 2), "basis points\n")
+cat("Mean daily return for buy-and-hold (same days):", round(mean_buy_and_hold, 2), "basis points\n")
+cat("T-statistic:", round(t_test_result$statistic, 3), "\n")
+cat("P-value:", format.pval(t_test_result$p.value, digits = 4), "\n")
+
+# Step 7: Provide a conclusion based on the p-value
+if (t_test_result$p.value < 0.05) {
+  cat("Conclusion: Strategy B generates a higher daily return than the buy-and-hold strategy (p < 0.05).\n")
+} else {
+  cat("Conclusion: No evidence that Strategy B generates a higher daily return than the buy-and-hold strategy (p >= 0.05).\n")
+}
+```
+
+##　Assignment 1 Q5(c)
+
+```{r}
+# Load required libraries
+library(readr)
+library(reshape2)
+library(car)  # For Levene's test
+
+# Read the data
+data <- read.csv("data1.csv")
+
+# Display the first few rows of the data to understand its structure
+cat("First few rows of the dataset:\n")
+print(head(data))
+
+# Summary statistics of the data
+cat("\nSummary statistics of the entire dataset:\n")
+print(summary(data))
+
+# Research Question: Do the three trading strategies (A, B, and C) generate the same daily returns?
+
+# Calculate returns for each strategy by applying the buy signals
+# Extract days with buy signals for each strategy
+days_A <- data[data$Strategy.A == 1, ]
+days_B <- data[data$Strategy.B == 1, ]
+days_C <- data[data$Strategy.C == 1, ]
+
+# Create vectors of returns for each strategy on buy signal days
+returns_A <- days_A$Stock.Return
+returns_B <- days_B$Stock.Return
+returns_C <- days_C$Stock.Return
+
+# Print summary statistics for each strategy
+cat("\nStrategy A Returns Summary (on buy signal days):\n")
+print(summary(returns_A))
+cat("Number of buy signals for Strategy A:", length(returns_A), "\n")
+cat("Mean return for Strategy A:", mean(returns_A), "basis points\n")
+cat("Standard deviation for Strategy A:", sd(returns_A), "basis points\n")
+
+cat("\nStrategy B Returns Summary (on buy signal days):\n")
+print(summary(returns_B))
+cat("Number of buy signals for Strategy B:", length(returns_B), "\n")
+cat("Mean return for Strategy B:", mean(returns_B), "basis points\n")
+cat("Standard deviation for Strategy B:", sd(returns_B), "basis points\n")
+
+cat("\nStrategy C Returns Summary (on buy signal days):\n")
+print(summary(returns_C))
+cat("Number of buy signals for Strategy C:", length(returns_C), "\n")
+cat("Mean return for Strategy C:", mean(returns_C), "basis points\n")
+cat("Standard deviation for Strategy C:", sd(returns_C), "basis points\n")
+
+# Create a data frame for ANOVA
+# Need to restructure the data into long format for ANOVA
+# First, create a list of return vectors with their strategy labels
+strategy_list <- list(
+  A = returns_A,
+  B = returns_B,
+  C = returns_C
+)
+
+# Convert to a data frame in long format
+long_data <- data.frame(
+  returns = c(returns_A, returns_B, returns_C),
+  strategy = factor(c(rep("A", length(returns_A)), 
+                     rep("B", length(returns_B)), 
+                     rep("C", length(returns_C))))
+)
+
+# Descriptive statistics by group
+cat("\nDescriptive statistics by strategy:\n")
+desc_stats <- aggregate(returns ~ strategy, data = long_data, 
+                      FUN = function(x) c(mean = mean(x), sd = sd(x), 
+                                        min = min(x), max = max(x), 
+                                        count = length(x)))
+print(desc_stats)
+
+# Conduct one-way ANOVA
+# H0: μA = μB = μC (means of all three strategies are equal)
+# H1: At least one mean is different
+anova_result <- aov(returns ~ strategy, data = long_data)
+
+# Print ANOVA results
+cat("\nAnalysis of Variance (ANOVA) Results:\n")
+print(summary(anova_result))
+
+# Check if the result is statistically significant
+alpha <- 0.05
+f_test_pvalue <- summary(anova_result)[[1]]["Pr(>F)"][[1]][1]
+
+if (f_test_pvalue < alpha) {
+  cat("\nConclusion: We reject the null hypothesis at the", alpha, "significance level.\n")
+  cat("There is significant evidence that the three trading strategies do not generate the same daily returns.\n")
+  
+  # If ANOVA is significant, perform post-hoc analysis to determine which strategies differ
+  cat("\nPost-hoc analysis (Tukey's HSD test):\n")
+  tukey_result <- TukeyHSD(anova_result)
+  print(tukey_result)
+  
+  # Interpret the Tukey test results
+  cat("\nInterpretation of Tukey's test:\n")
+  tukey_pvalues <- tukey_result$strategy[, "p adj"]
+  comparisons <- rownames(tukey_result$strategy)
+  
+  for (i in 1:length(comparisons)) {
+    if (tukey_pvalues[i] < alpha) {
+      cat("- The difference between", comparisons[i], "is statistically significant (p =", 
+          tukey_pvalues[i], ").\n")
+    } else {
+      cat("- The difference between", comparisons[i], "is not statistically significant (p =", 
+          tukey_pvalues[i], ").\n")
+    }
+  }
+} else {
+  cat("\nConclusion: We fail to reject the null hypothesis at the", alpha, "significance level.\n")
+  cat("There is insufficient evidence to conclude that the three trading strategies generate different daily returns.\n")
+}
+
+# Additionally, visualize the distributions of returns by strategy
+cat("\nBoxplot visualization was generated to compare the distributions.\n")
+boxplot(returns ~ strategy, data = long_data, 
+        main = "Distribution of Returns by Trading Strategy",
+        xlab = "Strategy", ylab = "Returns (basis points)",
+        col = c("lightblue", "lightgreen", "lightpink"))
+```
+
+##　Assignment 2 Q1
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(car)       # For Anova function
+
+# Read the data
+hkex_data <- readRDS("hkex.Rds")
+
+# Display the structure of the data
+str(hkex_data)
+print("First few rows of the original data:")
+print(head(hkex_data))
+
+# Step 1: Calculate VWAP by dividing TURN_DOL by TURN_SH
+hkex_data$VWAP <- hkex_data$TURN_DOL / hkex_data$TURN_SH
+
+# Print a sample to verify VWAP calculation
+print("First few rows after adding VWAP:")
+print(head(hkex_data[, c("MONTH_END", "STKCODE", "CLOSING", "TURN_SH", "TURN_DOL", "VWAP")]))
+
+# Step 2: Create a date variable for easier handling
+hkex_data$DATE <- as.Date(as.character(hkex_data$MONTH_END), format="%Y%m%d")
+
+# Step 3: Prepare data for return calculation
+# Sort data by stock and date
+hkex_data <- hkex_data %>%
+  arrange(STKCODE, DATE)
+
+# Create lagged values for each stock to calculate returns
+hkex_data <- hkex_data %>%
+  group_by(STKCODE) %>%
+  mutate(
+    PREV_CLOSING = lag(CLOSING),
+    PREV_VWAP = lag(VWAP),
+    MONTH = format(DATE, "%Y-%m")
+  ) %>%
+  ungroup()
+
+# Calculate monthly returns using CLOSING and VWAP
+hkex_data <- hkex_data %>%
+  mutate(
+    CLOSING_RETURN = (CLOSING / PREV_CLOSING) - 1,
+    VWAP_RETURN = (VWAP / PREV_VWAP) - 1
+  ) %>%
+  filter(!is.na(CLOSING_RETURN) & !is.na(VWAP_RETURN))
+
+# Display the returns data
+print("Sample of return data:")
+print(head(hkex_data[, c("MONTH_END", "STKCODE", "CLOSING", "VWAP", "CLOSING_RETURN", "VWAP_RETURN")]))
+
+# Step 4: Reshape data for ANOVA analysis
+returns_long <- hkex_data %>%
+  select(STKCODE, MONTH, CLOSING_RETURN, VWAP_RETURN) %>%
+  pivot_longer(
+    cols = c(CLOSING_RETURN, VWAP_RETURN),
+    names_to = "METHOD",
+    values_to = "RETURN"
+  ) %>%
+  mutate(METHOD = ifelse(METHOD == "CLOSING_RETURN", "CLOSING", "VWAP"))
+
+print("First few rows of the reshaped returns data:")
+print(head(returns_long))
+
+# Step 5: Run first ANOVA model - comparing return methods (without Error term)
+anova_model1 <- aov(RETURN ~ METHOD, data = returns_long)
+print("ANOVA Model 1 Results (comparing CLOSING vs VWAP):")
+print(summary(anova_model1))
+
+# Step 6: Run second ANOVA model - with stock and month effects (without Error term)
+anova_model2 <- aov(RETURN ~ METHOD + STKCODE + MONTH, data = returns_long)
+print("ANOVA Model 2 Results (with stock and month effects):")
+print(summary(anova_model2))
+
+# Step 7: Calculate mean returns for both methods
+mean_returns <- returns_long %>%
+  group_by(METHOD) %>%
+  summarise(
+    MEAN_RETURN = mean(RETURN, na.rm = TRUE),
+    SD_RETURN = sd(RETURN, na.rm = TRUE),
+    N = n()
+  )
+
+print("Mean returns by method:")
+print(mean_returns)
+
+# Step 8: Convert to annualized returns
+mean_returns$ANNUALIZED_RETURN <- (1 + mean_returns$MEAN_RETURN)^12 - 1
+
+print("Annualized returns by method:")
+print(mean_returns)
+
+# Step 9: Calculate the difference in annualized returns
+closing_annual <- mean_returns$ANNUALIZED_RETURN[mean_returns$METHOD == "CLOSING"]
+vwap_annual <- mean_returns$ANNUALIZED_RETURN[mean_returns$METHOD == "VWAP"]
+diff_annualized <- vwap_annual - closing_annual
+
+# Conclusion
+if (summary(anova_model1)[[1]]["METHOD", "Pr(>F)"] < 0.05) {
+  cat("\nConclusion from ANOVA Model 1: There is a statistically significant difference between VWAP returns and CLOSING returns (p-value =", 
+      round(summary(anova_model1)[[1]]["METHOD", "Pr(>F)"], 4), ").\n")
+} else {
+  cat("\nConclusion from ANOVA Model 1: There is no statistically significant difference between VWAP returns and CLOSING returns (p-value =", 
+      round(summary(anova_model1)[[1]]["METHOD", "Pr(>F)"], 4), ").\n")
+}
+
+if (summary(anova_model2)[[1]]["METHOD", "Pr(>F)"] < 0.05) {
+  cat("\nConclusion from ANOVA Model 2 (with stock and month effects): There is a statistically significant difference between VWAP returns and CLOSING returns (p-value =", 
+      round(summary(anova_model2)[[1]]["METHOD", "Pr(>F)"], 4), ").\n")
+} else {
+  cat("\nConclusion from ANOVA Model 2 (with stock and month effects): There is no statistically significant difference between VWAP returns and CLOSING returns (p-value =", 
+      round(summary(anova_model2)[[1]]["METHOD", "Pr(>F)"], 4), ").\n")
+}
+
+cat("\nThe annualized difference between VWAP returns and CLOSING returns is", round(diff_annualized * 100, 2), "percentage points.\n")
+```
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(PeerPerformance)
+
+# Read the data
+factor_data <- read.csv("factor.csv")
+ret_data <- read.csv("ret.csv")
+
+# Convert date strings to Date objects
+factor_data$date <- as.Date(factor_data$date, format = "%d/%m/%Y")
+ret_data$date <- as.Date(ret_data$date, format = "%d/%m/%Y")
+
+# Question 1: Regression for TSLA
+# Filter TSLA returns
+tsla_data <- ret_data %>% 
+  filter(TICKER == "TSLA") %>%
+  select(date, RET)
+
+# Merge with factor data
+tsla_merged <- merge(tsla_data, factor_data, by = "date")
+
+# Calculate excess return for TSLA
+tsla_merged$excess_return <- tsla_merged$RET - tsla_merged$rf
+
+# Run the regression
+tsla_model <- lm(excess_return ~ mktrf + smb + hml + umd, data = tsla_merged)
+
+# Print the summary
+tsla_summary <- summary(tsla_model)
+print("TSLA Regression Results:")
+print(tsla_summary)
+
+# Test if the coefficient of mktrf is equal to 1
+mktrf_coef <- tsla_summary$coefficients["mktrf", "Estimate"]
+mktrf_se <- tsla_summary$coefficients["mktrf", "Std. Error"]
+test_stat <- (mktrf_coef - 1) / mktrf_se
+p_value <- 2 * pt(abs(test_stat), df = tsla_summary$df[2], lower.tail = FALSE)
+
+print(paste("Test if mktrf coefficient =", 1))
+print(paste("mktrf coefficient:", mktrf_coef))
+print(paste("t-statistic:", test_stat))
+print(paste("p-value:", p_value))
+print(paste("At 5% significance level, we", ifelse(p_value < 0.05, "reject", "cannot reject"), "the hypothesis that the coefficient is equal to 1"))
+
+# Question 2: Regression for all stocks and Sharpe ratio test
+# Get unique tickers
+tickers <- unique(ret_data$TICKER)
+mktrf_coefs <- data.frame(TICKER = character(), mktrf_coef = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each ticker and perform regression
+for (ticker in tickers) {
+  ticker_data <- ret_data %>% 
+    filter(TICKER == ticker) %>%
+    select(date, RET)
+  
+  # Merge with factor data
+  merged_data <- merge(ticker_data, factor_data, by = "date")
+  
+  # Calculate excess return
+  merged_data$excess_return <- merged_data$RET - merged_data$rf
+  
+  # Skip if not enough data
+  if (nrow(merged_data) < 30) next
+  
+  # Run the regression
+  model <- lm(excess_return ~ mktrf + smb + hml + umd, data = merged_data)
+  
+  # Store the mktrf coefficient
+  mktrf_coefs <- rbind(mktrf_coefs, data.frame(
+    TICKER = ticker, 
+    mktrf_coef = coef(model)["mktrf"],
+    stringsAsFactors = FALSE
+  ))
+}
+
+# Sort to find highest and lowest mktrf coefficients
+sorted_coefs <- mktrf_coefs %>% arrange(mktrf_coef)
+lowest_ticker <- sorted_coefs$TICKER[1]
+highest_ticker <- sorted_coefs$TICKER[nrow(sorted_coefs)]
+
+print(paste("Stock with lowest mktrf coefficient:", lowest_ticker, "with value:", sorted_coefs$mktrf_coef[1]))
+print(paste("Stock with highest mktrf coefficient:", highest_ticker, "with value:", sorted_coefs$mktrf_coef[nrow(sorted_coefs)]))
+
+# Perform Sharpe ratio test
+# Get returns for the two stocks
+lowest_returns <- ret_data %>% 
+  filter(TICKER == lowest_ticker) %>%
+  select(date, RET) %>%
+  rename(lowest = RET)
+
+highest_returns <- ret_data %>% 
+  filter(TICKER == highest_ticker) %>%
+  select(date, RET) %>%
+  rename(highest = RET)
+
+# Merge the returns
+combined_returns <- merge(lowest_returns, highest_returns, by = "date")
+
+# Convert to xts objects for PerformanceAnalytics
+library(xts)
+combined_xts <- xts(combined_returns[, c("lowest", "highest")], order.by = combined_returns$date)
+
+# Calculate and test Sharpe ratios
+sharpe_test <- sharpeTesting(combined_xts$highest, combined_xts$lowest)
+
+print("Sharpe Ratio Test Results:")
+print(sharpe_test)
+
+```
+
+```{r}
+# Load required libraries
+library(tidyverse)
+library(TTR)
+library(lubridate)
+
+# Set parameters
+M <- 20  # Number of days for Moving Average
+K <- 2   # Number of standard deviations for bands
+
+# Read data
+raw_data <- read.csv("Nikkei225.csv", stringsAsFactors = FALSE, skip = 3)
+
+# Extract only the data rows
+nikkei_data <- raw_data[start_row:nrow(raw_data),]
+colnames(nikkei_data) <- c("Date", "Close", "Open", "High", "Low")
+
+# Remove empty columns and convert to proper data types
+nikkei_data <- nikkei_data %>%
+  select(Date, Close) %>%
+  mutate(
+    Date = dmy(Date),
+    Close = as.numeric(Close)
+  ) %>%
+  arrange(Date)  # Ensure chronological order
+
+# Calculate log returns
+nikkei_data <- nikkei_data %>%
+  mutate(log_return = c(NA, diff(log(Close))))
+
+# Calculate Bollinger Bands using TTR
+bollinger <- BBands(nikkei_data$Close, n = M, sd = K)
+
+# Combine data with Bollinger Bands
+nikkei_data <- nikkei_data %>%
+  bind_cols(as_tibble(bollinger)) %>%
+  # Generate buy/sell signals
+  mutate(
+    raw_signal = case_when(
+      Close > up ~ 1,    # Buy signal when price > upper band
+      Close < dn ~ -1,   # Sell signal when price < lower band
+      TRUE ~ 0           # No signal otherwise
+    ),
+    # Lag the signal by 1 day
+    signal = lag(raw_signal, 1),
+    # Calculate conditional returns
+    conditional_return = signal * log_return
+  ) %>%
+  # Remove NAs from calculations
+  filter(!is.na(signal), !is.na(log_return))
+
+# Separate buy and sell returns for t-test
+buy_returns <- nikkei_data %>% filter(signal == 1) %>% pull(log_return)
+sell_returns <- nikkei_data %>% filter(signal == -1) %>% pull(log_return)
+
+# Perform the t-test
+t_test_result <- t.test(buy_returns, sell_returns, var.equal = TRUE)
+
+
+# Print results
+cat("\n\n=== T-TEST RESULTS ===")
+cat("\nT-statistic:", round(t_test_result$statistic, 4))
+cat("\nDegrees of freedom:", round(t_test_result$parameter, 0))
+cat("\np-value:", format(t_test_result$p.value, scientific = FALSE))
+cat("\n95% Confidence Interval:", 
+    round(t_test_result$conf.int[1] * 100, 4), "% to", 
+    round(t_test_result$conf.int[2] * 100, 4), "%")
+
+cat("\n\nInterpretation:")
+if (t_test_result$p.value < 0.05) {
+  cat("\nThe difference between buy and sell signal returns is statistically significant (p < 0.05).")
+  cat("\nThis suggests that the Bollinger Band strategy may have predictive power.")
+} else {
+  cat("\nThe difference between buy and sell signal returns is not statistically significant (p ≥ 0.05).")
+  cat("\nThis suggests that the Bollinger Band strategy may not have predictive power.")
+}
+
+# Optional: Create a time series plot of close price with Bollinger Bands
+# Uncomment and run if visualization is needed
+# ggplot(nikkei_data, aes(x = Date)) +
+#   geom_line(aes(y = Close), color = "black") +
+#   geom_line(aes(y = mavg), color = "blue", linetype = "dashed") +
+#   geom_line(aes(y = up), color = "green") +
+#   geom_line(aes(y = dn), color = "red") +
+#   labs(title = "Nikkei225 with Bollinger Bands",
+#        y = "Price", x = "Date") +
+#   theme_minimal()
+
+
+
+
+
+
+```
+
+
+
+```{r}
+
+
+# Load necessary library
+library(ggplot2)
+
+# Function to compute probability using the binomial distribution
+compute_probability <- function(p, epsilon, eta) {
+  # Compute the minimum n using the given formula
+  n_min <- ceiling((1 + epsilon) / (epsilon^2) * log(1 / eta )+ 1 / epsilon)  
+  
+  # Compute the probability using binomial cumulative distribution
+  lower_bound <- floor((p - epsilon) * n_min)
+  upper_bound <- ceiling((p + epsilon) * n_min)
+  
+  
+  # Compute probability using binomial distribution
+  prob <- sum(dbinom(lower_bound:upper_bound, size = n_min, prob = p))
+  
+  return(data.frame(p = p, Probability = prob))
+}
+
+# Parameters
+epsilon <- 0.01
+eta <- 0.01
+p_values <- seq(0.1, 0.9, by = 0.1)
+
+# Compute probabilities for different p values
+probabilities <- do.call(rbind, lapply(p_values, compute_probability, epsilon, eta))
+probabilities
+
+```
+
+```{r}
+Graph 1: Probability plot across p
+
+{r}
+
+# Compare with 1 - eta
+probabilities$Target <- 1 - eta
+
+# Plot using ggplot2 
+ggplot(probabilities, aes(x = p, y = Probability)) +
+  geom_point(color = "blue", size = 3) +
+  geom_line(color = "blue") +
+  # geom_hline(yintercept = 1 - eta, linetype = "dashed", color = "red") +
+  labs(title = "Probability Comparison with 1 - η",
+       x = "p",
+       y = "Probability P(|m/n - p| < ε)") +
+  theme_minimal()
+```

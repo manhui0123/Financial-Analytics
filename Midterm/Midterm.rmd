@@ -1,0 +1,65 @@
+---
+title: "Stock Returns Analysis"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r}
+install.packages('tinytex')
+tinytex::install_tinytex()
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Set working directory
+setwd("C:/Users/manhu/Downloads/Assignment 1")
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+
+# Read in the data with proper column names
+data <- read.csv("data1.csv", stringsAsFactors = FALSE)
+
+# Let's check the structure of the data
+str(data)
+
+# View the first few rows
+head(data)
+
+# Basic summary statistics
+summary(data)
+```
+
+```{r}
+# Example of data manipulation using actual columns
+filtered_data <- data %>%
+  filter(`Stock.Return` > 0)  # Filter positive returns
+
+# Create a plot using actual columns
+plot <- ggplot(data, aes(x = Stock.Return)) +
+  geom_histogram(binwidth = 0.5) +
+  labs(title = "Distribution of Stock Returns",
+       x = "Stock Return",
+       y = "Frequency")
+
+# Print the plot
+print(plot)
+```
+
+# New R chunk for additional analysis
+```{r additional-analysis}
+# Example of additional analysis
+# Calculate mean and median of Stock.Return
+mean_return <- mean(data$Stock.Return, na.rm = TRUE)
+median_return <- median(data$Stock.Return, na.rm = TRUE)
+
+# Print the results
+mean_return
+median_return
+```
+
+
+
